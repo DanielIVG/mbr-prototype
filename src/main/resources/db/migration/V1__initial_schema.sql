@@ -200,11 +200,13 @@ CREATE TABLE rpn_factor (
     detection_level_id    INTEGER NOT NULL REFERENCES fmea_scale_level(id),
     priority_category_id  INTEGER REFERENCES rpn_priority_category(id),
     is_current            INTEGER NOT NULL DEFAULT 1 CHECK (is_current IN (0,1)),  -- [JC-6]
+    reassessment_id       INTEGER REFERENCES reassessment(id),  -- [JC-7] reevaluacion que origino este registro (NULL en la evaluacion inicial)
     CHECK (rpn = severity * occurrence * detection)              -- [JC-3]
 );
 
 -- [JC-6] Un solo registro vigente por analisis FMEA; los demas son historial.
 CREATE UNIQUE INDEX ux_rpn_factor_current ON rpn_factor(fmea_analysis_id) WHERE is_current = 1;
+CREATE INDEX ix_rpn_factor_reassessment ON rpn_factor(reassessment_id);
 
 -- ---------- 2.5 Estimacion y control ----------
 CREATE TABLE risk_estimation (
@@ -253,8 +255,7 @@ CREATE TABLE reassessment (
     estimation_before_id  INTEGER NOT NULL REFERENCES risk_estimation(id),
     estimation_after_id   INTEGER NOT NULL REFERENCES risk_estimation(id),
     evaluation_before_id  INTEGER NOT NULL REFERENCES risk_evaluation(id),
-    evaluation_after_id   INTEGER NOT NULL REFERENCES risk_evaluation(id),
-    rpn_factor_id         INTEGER REFERENCES rpn_factor(id)
+    evaluation_after_id   INTEGER NOT NULL REFERENCES risk_evaluation(id)
 );
 
 -- ---------- Indices en FK (SQLite no los crea solo) [JC-4] ----------
