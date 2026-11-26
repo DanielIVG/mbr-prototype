@@ -1,12 +1,15 @@
 package org.example;
 
+import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 import org.example.client.ApiClient;
 import org.example.config.AppContext;
 import org.example.config.Database;
-import org.example.view.DevicesPane;
+import org.example.view.Navigator;
+
+import java.util.Objects;
 
 public class App extends Application {
 
@@ -20,9 +23,15 @@ public class App extends Application {
 
     @Override
     public void start(Stage stage) {
+        Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
         var api = new ApiClient(context.apiBaseUrl());
-        stage.setTitle("MBR - Dispositivos médicos");
-        stage.setScene(new Scene(new DevicesPane(api), 760, 520));
+        var scene = new Scene(new Navigator(api), 1280, 800);
+        scene.getStylesheets().add(
+                Objects.requireNonNull(App.class.getResource("/css/mbr.css")).toExternalForm());
+        stage.setTitle("MBR — Gestión de riesgos de dispositivos médicos");
+        stage.setMinWidth(1000);
+        stage.setMinHeight(640);
+        stage.setScene(scene);
         stage.show();
     }
 

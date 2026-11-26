@@ -40,7 +40,8 @@ class ModelServicesTest {
         var links = new ModelLinksRepository(sf);
         devices = new DeviceService(new DeviceRepository(sf));
         components = new ComponentService(
-                new ModelElementRepository<>(sf, Component.class), links, devices);
+                new ModelElementRepository<>(sf, Component.class), links, devices,
+                new org.example.service.ComponentLibraryService(new org.example.repository.ComponentLibraryRepository(sf)));
         functions = new DeviceFunctionService(
                 new ModelElementRepository<>(sf, DeviceFunction.class), links, devices, components);
         interactions = new InteractionService(
@@ -81,16 +82,16 @@ class ModelServicesTest {
 
     @Test
     void jerarquiaCircularSeRechaza() {
-        var a = component("A");
-        var b = components.create(deviceId, a.getId(), "B", null, false, null);
+        var a = component("Pump");
+        var b = components.create(deviceId, a.getId(), "Battery", null, false, null);
         assertThrows(IllegalArgumentException.class,
-                () -> components.update(a.getId(), b.getId(), "A", null, false, null));
+                () -> components.update(a.getId(), b.getId(), "Pump", null, false, null));
     }
 
     @Test
     void interaccionExigeDosComponentes() {
-        var a = component("A");
-        var b = component("B");
+        var a = component("Pump");
+        var b = component("Battery");
         assertThrows(IllegalArgumentException.class,
                 () -> interactions.create(deviceId, "Fuga", "Relevante", Set.of(a.getId())));
         var i = interactions.create(deviceId, "Fuga", "Relevante", Set.of(a.getId(), b.getId()));
@@ -99,7 +100,7 @@ class ModelServicesTest {
 
     @Test
     void funcionVinculaComponentesDelMismoDispositivo() {
-        var a = component("A");
+        var a = component("Pump");
         var f = functions.create(deviceId, "Infundir", null, Set.of(a.getId()));
         assertEquals(Set.of(a.getId()), functions.find(f.getId()).orElseThrow().getComponentIds());
         assertThrows(IllegalArgumentException.class,
@@ -108,16 +109,16 @@ class ModelServicesTest {
 
     @Test
     void modificarMarcaElRiesgoComoPendienteDeRevision() {
-        var c = component("A");
+        var c = component("Pump");
         Long hazard = hazardOn(c.getId());
         assertNull(reviewStatus(hazard));
-        components.update(c.getId(), null, "A2", null, false, null);
+        components.update(c.getId(), null, "Display", null, false, null);
         assertEquals(ModelElementRepository.PENDING_REVIEW, reviewStatus(hazard));
     }
 
     @Test
     void conRiesgoAsociadoNoSeEliminaPeroSiSeDesactiva() {
-        var c = component("A");
+        var c = component("Pump");
         hazardOn(c.getId());
         assertThrows(ConflictException.class, () -> components.delete(c.getId()));
         components.deactivate(c.getId());
@@ -133,14 +134,14 @@ class ModelServicesTest {
 
     @Test
     void componenteVinculadoNoSeElimina() {
-        var a = component("A");
+        var a = component("Pump");
         functions.create(deviceId, "Infundir", null, Set.of(a.getId()));
         assertThrows(ConflictException.class, () -> components.delete(a.getId()));
     }
 
     @Test
     void sinReferenciasSeEliminaFisicamente() {
-        var c = component("A");
+        var c = component("Pump");
         components.delete(c.getId());
         assertTrue(components.find(c.getId()).isEmpty());
     }

@@ -38,6 +38,31 @@ public class RiskChainService {
                 harmDescription.trim(), harmType);
     }
 
+    /** Cadena con secuencia de varios pasos; cada paso puede indicar el componente donde ocurre. */
+    public RiskChain createChain(Long modelElementId, String hazardDescription, String source,
+                                 List<RiskChainRepository.Step> steps, String situationDescription,
+                                 String harmDescription, String harmType) {
+        Validation.requireText(hazardDescription, "La descripción del peligro es obligatoria");
+        Validation.requireText(situationDescription, "La situación peligrosa es obligatoria");
+        Validation.requireText(harmDescription, "La descripción del daño es obligatoria");
+        if (steps == null || steps.isEmpty()) {
+            throw new IllegalArgumentException("La secuencia de eventos necesita al menos un paso");
+        }
+        requireElementIfPresent(modelElementId);
+        List<RiskChainRepository.Step> clean = new java.util.ArrayList<>();
+        for (RiskChainRepository.Step step : steps) {
+            Validation.requireText(step.description(), "Todos los pasos de la secuencia necesitan descripción");
+            requireElementIfPresent(step.modelElementId());
+            clean.add(new RiskChainRepository.Step(step.description().trim(), step.modelElementId()));
+        }
+        Hazard hazard = new Hazard();
+        hazard.setModelElementId(modelElementId);
+        hazard.setDescription(hazardDescription.trim());
+        hazard.setSource(source);
+        return repo.createChain(hazard, clean, situationDescription.trim(),
+                harmDescription.trim(), harmType);
+    }
+
     public SequenceOfEvents addSequence(Long hazardId, String description) {
         Validation.requireText(description, "La secuencia de eventos es obligatoria");
         require(Hazard.class, hazardId, "Peligro");
@@ -97,6 +122,11 @@ public class RiskChainService {
         h.setDescription(description.trim());
         h.setType(type);
         return repo.update(h);
+    }
+
+    public List<SequenceOfEvents> listSequence(Long hazardId) {
+        require(Hazard.class, hazardId, "Peligro");
+        return repo.listSequence(hazardId);
     }
 
     public Optional<RiskChain> findChain(Long harmId) {

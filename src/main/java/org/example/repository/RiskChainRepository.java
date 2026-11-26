@@ -55,14 +55,29 @@ public class RiskChainRepository {
     public RiskChain createChain(Hazard hazard, String sequenceDescription,
                                  String situationDescription, String harmDescription,
                                  String harmType) {
+        return createChain(hazard, List.of(new Step(sequenceDescription, null)),
+                situationDescription, harmDescription, harmType);
+    }
+
+    /** Un paso de la secuencia con el componente donde ocurre (opcional). */
+    public record Step(String description, Long modelElementId) {}
+
+    /** Varios pasos; la situación peligrosa se asocia al último (misma transacción). */
+    public RiskChain createChain(Hazard hazard, List<Step> steps, String situationDescription,
+                                 String harmDescription, String harmType) {
         return sf.fromTransaction(s -> {
             s.persist(hazard);
 
-            SequenceOfEvents sequence = new SequenceOfEvents();
-            sequence.setHazardId(hazard.getId());
-            sequence.setDescription(sequenceDescription);
-            sequence.setStepOrder(1);
-            s.persist(sequence);
+            SequenceOfEvents sequence = null;
+            int order = 1;
+            for (Step step : steps) {
+                sequence = new SequenceOfEvents();
+                sequence.setHazardId(hazard.getId());
+                sequence.setDescription(step.description());
+                sequence.setModelElementId(step.modelElementId());
+                sequence.setStepOrder(order++);
+                s.persist(sequence);
+            }
 
             HazardousSituation situation = new HazardousSituation();
             situation.setSequenceOfEventsId(sequence.getId());
@@ -77,6 +92,15 @@ public class RiskChainRepository {
 
             return new RiskChain(hazard, sequence, situation, harm);
         });
+    }
+
+    /** Pasos de la secuencia de un peligro, en orden. */
+    public List<SequenceOfEvents> listSequence(Long hazardId) {
+        return sf.fromTransaction(s -> s.createSelectionQuery(
+                        "from SequenceOfEvents e where e.hazardId = :id order by e.stepOrder",
+                        SequenceOfEvents.class)
+                .setParameter("id", hazardId)
+                .getResultList());
     }
 
     public Optional<RiskChain> findChain(Long harmId) {

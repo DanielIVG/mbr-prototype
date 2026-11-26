@@ -115,7 +115,7 @@ class RiskChainServiceTest {
         var chain = newChain();
         assertNull(chain.hazard().getReviewStatus());
 
-        services.components().update(componentId, null, "Motor v2", null, false, null);
+        services.components().update(componentId, null, "Pump", null, false, null);
 
         var found = chains.findChain(chain.harm().getId()).orElseThrow();
         assertEquals(ModelElementRepository.PENDING_REVIEW, found.hazard().getReviewStatus());

@@ -18,9 +18,16 @@ public record RiskChainDto(HazardDto hazard, SequenceDto sequence,
         }
     }
 
-    public record SequenceDto(Long id, Long hazardId, String description, int stepOrder) {
+    public record SequenceDto(Long id, Long hazardId, String description, int stepOrder,
+                              Long modelElementId) {
+        /** Constructor sin componente (compatibilidad). */
+        public SequenceDto(Long id, Long hazardId, String description, int stepOrder) {
+            this(id, hazardId, description, stepOrder, null);
+        }
+
         public static SequenceDto from(SequenceOfEvents s) {
-            return new SequenceDto(s.getId(), s.getHazardId(), s.getDescription(), s.getStepOrder());
+            return new SequenceDto(s.getId(), s.getHazardId(), s.getDescription(), s.getStepOrder(),
+                    s.getModelElementId());
         }
     }
 

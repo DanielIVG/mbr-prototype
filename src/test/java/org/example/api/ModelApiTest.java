@@ -88,8 +88,8 @@ class ModelApiTest {
 
     @Test
     void interaccionNecesitaDosComponentes() throws Exception {
-        long a = createComponent("A");
-        long b = createComponent("B");
+        long a = createComponent("Pump");
+        long b = createComponent("Battery");
 
         var uno = call("POST", "/interactions",
                 "{\"deviceId\":" + deviceId + ",\"description\":\"Fuga\","
@@ -105,7 +105,7 @@ class ModelApiTest {
 
     @Test
     void funcionVinculaComponentesYSeElimina() throws Exception {
-        long a = createComponent("A");
+        long a = createComponent("Pump");
         var created = call("POST", "/functions",
                 "{\"deviceId\":" + deviceId + ",\"name\":\"Infundir\",\"componentIds\":[" + a + "]}");
         assertEquals(201, created.statusCode());

@@ -39,6 +39,16 @@ class ApiClientTest {
     }
 
     @Test
+    void actualizaLosDatosDeUnDispositivo() {
+        var created = client.createDevice("Bomba", "Infundir", null);
+        var updated = client.updateDevice(created.id(), "Bomba BI-200", "Infundir fármacos", "Dosis mal programada");
+        assertEquals(created.id(), updated.id());
+        assertEquals("Bomba BI-200", updated.name());
+        assertEquals("Dosis mal programada", updated.reasonablyForeseeableMisuse());
+        assertEquals("Bomba BI-200", client.listDevices().get(0).name());
+    }
+
+    @Test
     void creaListaYDesactiva() {
         var created = client.createDevice("Bomba", "Infundir", null);
         assertNotNull(created.id());

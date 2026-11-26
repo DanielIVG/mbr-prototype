@@ -16,9 +16,15 @@ public class RiskChainController {
 
     public void createChain(Context ctx) {
         var in = ctx.bodyAsClass(CreateChainRequest.class);
-        var chain = service.createChain(in.modelElementId(), in.hazardDescription(), in.source(),
-                in.sequenceDescription(), in.situationDescription(),
-                in.harmDescription(), in.harmType());
+        var chain = in.steps() != null && !in.steps().isEmpty()
+                ? service.createChain(in.modelElementId(), in.hazardDescription(), in.source(),
+                        in.steps().stream()
+                                .map(st -> new org.example.repository.RiskChainRepository.Step(
+                                        st.description(), st.modelElementId())).toList(),
+                        in.situationDescription(), in.harmDescription(), in.harmType())
+                : service.createChain(in.modelElementId(), in.hazardDescription(), in.source(),
+                        in.sequenceDescription(), in.situationDescription(),
+                        in.harmDescription(), in.harmType());
         ctx.status(201).json(RiskChainDto.from(chain));
     }
 
@@ -31,6 +37,11 @@ public class RiskChainController {
         var chain = service.findChain(harmId).orElseThrow(
                 () -> new NoSuchElementException("Cadena de riesgo no encontrada para el daño: " + harmId));
         ctx.json(RiskChainDto.from(chain));
+    }
+
+    public void listSequence(Context ctx) {
+        ctx.json(service.listSequence(Params.id(ctx)).stream()
+                .map(RiskChainDto.SequenceDto::from).toList());
     }
 
     public void addSequence(Context ctx) {

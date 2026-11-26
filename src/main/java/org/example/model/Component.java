@@ -18,6 +18,10 @@ public class Component extends ModelElement {
 
     private String description;
 
+    /** Término de la biblioteca de componentes (V6); null solo en componentes anteriores a V7. */
+    @Column(name = "library_code")
+    private String libraryCode;
+
     @Column(nullable = false)
     private boolean essential;
 
@@ -32,6 +36,8 @@ public class Component extends ModelElement {
     public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getLibraryCode() { return libraryCode; }
+    public void setLibraryCode(String libraryCode) { this.libraryCode = libraryCode; }
     public boolean isEssential() { return essential; }
     public void setEssential(boolean essential) { this.essential = essential; }
     public String getEssentialJustification() { return essentialJustification; }

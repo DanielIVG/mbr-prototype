@@ -20,6 +20,11 @@ public class SequenceOfEvents {
     @Column(name = "step_order", nullable = false)
     private int stepOrder;
 
+    @Column(name = "model_element_id")
+    private Long modelElementId;
+
+    public Long getModelElementId() { return modelElementId; }
+    public void setModelElementId(Long modelElementId) { this.modelElementId = modelElementId; }
     public Long getId() { return id; }
     public Long getHazardId() { return hazardId; }
     public void setHazardId(Long hazardId) { this.hazardId = hazardId; }

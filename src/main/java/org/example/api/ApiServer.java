@@ -19,6 +19,12 @@ public class ApiServer {
         var interactions = new InteractionController(services.interactions());
         var chains = new RiskChainController(services.chains());
         var fmea = new FmeaController(services.fmeaConfig(), services.fmea());
+        var assessment = new AssessmentController(services.assessment());
+        var fta = new FtaController(services.fta());
+        var behavior = new BehaviorController(services.behavior());
+        var library = new ComponentLibraryController(services.library());
+        var traceability = new TraceabilityController(services.traceability());
+        var dashboard = new DashboardController(services.dashboard());
 
         this.app = Javalin.create(config -> {
             config.jetty.host = "127.0.0.1"; // solo accesible desde esta máquina
@@ -85,6 +91,7 @@ public class ApiServer {
             config.routes.post("/risk-chains", chains::createChain);
             config.routes.get("/risk-chains", chains::listChains);
             config.routes.get("/risk-chains/{id}", chains::getChain);
+            config.routes.get("/hazards/{id}/sequences", chains::listSequence);
             config.routes.post("/hazards/{id}/sequences", chains::addSequence);
             config.routes.post("/sequences/{id}/situations", chains::addSituation);
             config.routes.post("/situations/{id}/harms", chains::addHarm);
@@ -108,6 +115,43 @@ public class ApiServer {
             config.routes.get("/fmea-analyses/{id}", fmea::getAnalysis);
             config.routes.put("/fmea-analyses/{id}/factors", fmea::reevaluate);
             config.routes.get("/fmea-analyses/{id}/history", fmea::history);
+
+            // ISO 14971: criterios, estimación P1×P2 con procedencia, sensibilidad y control
+            config.routes.get("/component-library", library::list);
+            config.routes.get("/component-library/search", library::search);
+            config.routes.get("/components/{id}/behavior", behavior::list);
+            config.routes.get("/devices/{id}/behavior", behavior::listByDevice);
+            config.routes.post("/behavior-nodes", behavior::create);
+            config.routes.put("/behavior-nodes/{id}", behavior::update);
+            config.routes.post("/behavior-nodes/{id}/deactivate", behavior::deactivate);
+            config.routes.put("/harms/{id}/fta", fta::save);
+            config.routes.get("/harms/{id}/fta", fta::get);
+            config.routes.get("/criteria", assessment::getCriteria);
+            config.routes.put("/criteria", assessment::putCriteria);
+            config.routes.get("/evidence-levels", assessment::evidenceLevels);
+            config.routes.post("/harms/{id}/estimations", assessment::estimate);
+            config.routes.get("/harms/{id}/estimation", assessment::latest);
+            config.routes.get("/harms/{id}/estimations", assessment::history);
+            config.routes.get("/harms/{id}/sensitivity", assessment::sensitivity);
+            config.routes.post("/harms/{id}/controls", assessment::addControl);
+            config.routes.get("/harms/{id}/controls", assessment::controls);
+            config.routes.post("/controls/{id}/verifications", assessment::addVerification);
+            config.routes.get("/controls/{id}/verifications", assessment::verifications);
+
+            // Trazabilidad: requisitos, enlaces con medidas de control y consultas hacia atrás/delante
+            config.routes.get("/requirements", traceability::listRequirements);
+            config.routes.post("/requirements", traceability::createRequirement);
+            config.routes.put("/requirements/{id}", traceability::updateRequirement);
+            config.routes.post("/requirements/{id}/deactivate", traceability::deactivateRequirement);
+            config.routes.post("/requirements/{id}/controls", traceability::link);
+            config.routes.delete("/requirements/{id}/controls/{controlId}", traceability::unlink);
+            config.routes.get("/devices/{id}/controls", traceability::controls);
+            config.routes.get("/devices/{id}/traceability", traceability::matrix);
+            config.routes.get("/harms/{id}/components", traceability::componentsOfHarm);
+            config.routes.get("/components/{id}/harms", traceability::harmsOfComponent);
+
+            // Dashboard de RPN del dispositivo
+            config.routes.get("/devices/{id}/rpn-dashboard", dashboard::rpn);
 
             config.routes.exception(IllegalArgumentException.class, (e, ctx) ->
                     ctx.status(400).json(Map.of("error", String.valueOf(e.getMessage()))));

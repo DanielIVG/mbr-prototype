@@ -17,21 +17,26 @@ public class ComponentService {
     private final ModelElementRepository<Component> repo;
     private final ModelLinksRepository links;
     private final DeviceService devices;
+    private final ComponentLibraryService library;
 
     public ComponentService(ModelElementRepository<Component> repo,
-                            ModelLinksRepository links, DeviceService devices) {
+                            ModelLinksRepository links, DeviceService devices,
+                            ComponentLibraryService library) {
         this.repo = repo;
         this.links = links;
         this.devices = devices;
+        this.library = library;
     }
 
     public Component create(Long deviceId, Long parentId, String name, String description,
                             boolean essential, String justification) {
         Validation.requireDevice(devices, deviceId);
         validate(deviceId, null, parentId, name, essential, justification);
+        var term = requireInLibrary(name);
         Component c = new Component();
         c.setDeviceId(deviceId);
-        apply(c, parentId, name, description, essential, justification);
+        c.setLibraryCode(term.code());
+        apply(c, parentId, term.name(), description, essential, justification);
         return repo.save(c);
     }
 
@@ -39,7 +44,13 @@ public class ComponentService {
                             boolean essential, String justification) {
         Component c = get(id);
         validate(c.getDeviceId(), id, parentId, name, essential, justification);
-        apply(c, parentId, name, description, essential, justification);
+        String finalName = name.trim();
+        if (!finalName.equals(c.getName())) {              // solo se exige la biblioteca si cambia el nombre
+            var term = requireInLibrary(name);
+            c.setLibraryCode(term.code());
+            finalName = term.name();
+        }
+        apply(c, parentId, finalName, description, essential, justification);
         return repo.update(c);
     }
 
@@ -91,6 +102,13 @@ public class ComponentService {
             result.add(id);
         }
         return result;
+    }
+
+    /** El nombre debe ser un término de la biblioteca; se toma el nombre oficial (sin importar mayúsculas ni tildes). */
+    private org.example.repository.ComponentLibraryRepository.Entry requireInLibrary(String name) {
+        return library.resolve(name).orElseThrow(() -> new IllegalArgumentException(
+                "«" + name.trim() + "» no está en la biblioteca de componentes. "
+                        + "Elija un componente de la biblioteca."));
     }
 
     private Component get(Long id) {
