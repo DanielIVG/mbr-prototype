@@ -17,9 +17,15 @@ public class FailureMode {
     @Column(nullable = false)
     private String description;
 
+    /** Nodo del árbol de comportamiento al que está vinculado (opcional). */
+    @Column(name = "behavior_node_id")
+    private Long behaviorNodeId;
+
     public Long getId() { return id; }
     public Long getModelElementId() { return modelElementId; }
     public void setModelElementId(Long modelElementId) { this.modelElementId = modelElementId; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public Long getBehaviorNodeId() { return behaviorNodeId; }
+    public void setBehaviorNodeId(Long behaviorNodeId) { this.behaviorNodeId = behaviorNodeId; }
 }

@@ -29,14 +29,14 @@ public class InteractionController {
     public void create(Context ctx) {
         var in = ctx.bodyAsClass(InteractionDto.class);
         var i = service.create(in.deviceId(), in.description(), in.relevanceJustification(),
-                in.componentIds());
+                in.functionIds());
         ctx.status(201).json(InteractionDto.from(i));
     }
 
     public void update(Context ctx) {
         var in = ctx.bodyAsClass(InteractionDto.class);
         var i = service.update(Params.id(ctx), in.description(), in.relevanceJustification(),
-                in.componentIds());
+                in.functionIds());
         ctx.json(InteractionDto.from(i));
     }
 

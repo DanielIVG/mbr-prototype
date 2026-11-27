@@ -61,4 +61,21 @@ public class TraceabilityController {
     public void harmsOfComponent(Context ctx) {
         ctx.json(service.harmsOfComponent(Params.id(ctx)).stream().map(TraceabilityDtos.HarmRefDto::from).toList());
     }
+
+    /** Indicios del origen de un daño: cadena de riesgo + camino del árbol con modos de falla. */
+    public void originTrace(Context ctx) {
+        var traceOpt = service.originTrace(Params.id(ctx));
+        if (traceOpt.isEmpty()) {
+            ctx.status(404).json(java.util.Map.of("error", "El daño no fue generado por un árbol de comportamiento"));
+            return;
+        }
+        var trace = traceOpt.get();
+        var steps = trace.path().stream().map(s -> new TraceabilityDtos.OriginStepDto(
+                s.nodeId(), s.kind(), s.description(), s.branch(), s.elementId(), s.elementName(),
+                s.failureModes().stream().map(fm ->
+                        new TraceabilityDtos.FailureModeRefDto(fm.id(), fm.description(), fm.occurrence())).toList()
+        )).toList();
+        ctx.json(new TraceabilityDtos.OriginTraceDto(trace.harmId(), trace.harmDescription(), trace.harmType(),
+                trace.situationDescription(), trace.hazardId(), trace.hazardDescription(), steps));
+    }
 }

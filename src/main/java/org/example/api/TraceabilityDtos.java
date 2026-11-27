@@ -72,4 +72,18 @@ public final class TraceabilityDtos {
             return new ElementRefDto(e.id(), e.name());
         }
     }
+
+    // ------------------------------------------------------------------ indicios del origen
+
+    /** Un modo de falla vinculado a un paso del camino. */
+    public record FailureModeRefDto(Long id, String description, Integer occurrence) {}
+
+    /** Un paso del camino del árbol de comportamiento que llevó al daño. */
+    public record OriginStepDto(Long nodeId, String kind, String description, String branch,
+                                Long elementId, String elementName, List<FailureModeRefDto> failureModes) {}
+
+    /** Indicios del origen de un daño: cadena de riesgo + camino del árbol con modos de falla. */
+    public record OriginTraceDto(Long harmId, String harmDescription, String harmType,
+                                 String situationDescription, Long hazardId, String hazardDescription,
+                                 List<OriginStepDto> path) {}
 }

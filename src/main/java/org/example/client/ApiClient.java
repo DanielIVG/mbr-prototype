@@ -12,6 +12,7 @@ import org.example.api.DashboardDtos;
 import org.example.api.TraceabilityDtos;
 import org.example.api.ComponentLibraryDtos;
 import org.example.api.FtaDtos;
+import org.example.api.FmeaDtos;
 import org.example.api.FunctionDto;
 import org.example.api.InteractionDto;
 
@@ -226,6 +227,13 @@ public class ApiClient {
         }
     }
 
+    // ------------------------------------------------------------ FMEA: modos de falla
+
+    public FmeaDtos.FailureModeDto createFailureMode(FmeaDtos.FailureModeRequest body) {
+        return read(sendJson("/failure-modes", "POST", body).body(),
+                new TypeReference<FmeaDtos.FailureModeDto>() {});
+    }
+
     private void deactivate(String path) {
         send(request(path).POST(HttpRequest.BodyPublishers.noBody()).build());
     }
@@ -336,6 +344,19 @@ public class ApiClient {
         return read(response.body(), new TypeReference<List<TraceabilityDtos.HarmRefDto>>() {});
     }
 
+    /** Indicios del origen de un daño (null si no fue generado por árbol de comportamiento). */
+    public TraceabilityDtos.OriginTraceDto originTrace(long harmId) {
+        try {
+            var response = send(request("/harms/" + harmId + "/origin-trace").GET().build());
+            return read(response.body(), new TypeReference<TraceabilityDtos.OriginTraceDto>() {});
+        } catch (ApiException e) {
+            if (e.status() == 404) {
+                return null;
+            }
+            throw e;
+        }
+    }
+
     public DashboardDtos.DashboardDto rpnDashboard(long deviceId) {
         var response = send(request("/devices/" + deviceId + "/rpn-dashboard").GET().build());
         return read(response.body(), new TypeReference<DashboardDtos.DashboardDto>() {});
@@ -364,6 +385,17 @@ public class ApiClient {
 
     public void deactivateBehaviorNode(long id) {
         deactivate("/behavior-nodes/" + id + "/deactivate");
+    }
+
+    public BehaviorDtos.FailureModeRef linkFailureModeToBehaviorNode(long failureModeId, long behaviorNodeId) {
+        return read(sendJson("/failure-modes/link", "POST",
+                        new BehaviorDtos.LinkFailureModeRequest(failureModeId, behaviorNodeId)).body(),
+                new TypeReference<BehaviorDtos.FailureModeRef>() {});
+    }
+
+    public BehaviorDtos.FailureModeRef unlinkFailureModeFromBehaviorNode(long failureModeId) {
+        return read(sendJson("/failure-modes/" + failureModeId + "/unlink", "POST", null).body(),
+                new TypeReference<BehaviorDtos.FailureModeRef>() {});
     }
 
     // ------------------------------------------------------------ biblioteca de componentes

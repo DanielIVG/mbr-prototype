@@ -32,7 +32,7 @@ import org.hibernate.SessionFactory;
 public record Services(DeviceService devices, ComponentService components,
                        DeviceFunctionService functions, InteractionService interactions,
                        RiskChainService chains, FmeaConfigService fmeaConfig,
-                       FmeaService fmea, AssessmentService assessment, FtaService fta,
+                       FmeaService fmea, FmeaRepository fmeaRepo, AssessmentService assessment, FtaService fta,
                        BehaviorService behavior, ComponentLibraryService library,
                        TraceabilityService traceability, RpnDashboardService dashboard) {
 
@@ -45,7 +45,7 @@ public record Services(DeviceService devices, ComponentService components,
         var functions = new DeviceFunctionService(
                 new ModelElementRepository<>(sf, DeviceFunction.class), links, devices, components);
         var interactions = new InteractionService(
-                new ModelElementRepository<>(sf, Interaction.class), links, devices, components);
+                new ModelElementRepository<>(sf, Interaction.class), links, devices, functions);
         var chains = new RiskChainService(new RiskChainRepository(sf));
         var fmeaRepository = new FmeaRepository(sf);
         var fmeaConfig = new FmeaConfigService(fmeaRepository);
@@ -53,7 +53,7 @@ public record Services(DeviceService devices, ComponentService components,
         var fta = new FtaService(new FtaRepository(sf));
         var assessment = new AssessmentService(new AssessmentRepository(sf), fta);
         return new Services(devices, components, functions, interactions, chains, fmeaConfig, fmea,
-                assessment, fta, new BehaviorService(new BehaviorRepository(sf)),
+                fmeaRepository, assessment, fta, new BehaviorService(new BehaviorRepository(sf)),
                 library, new TraceabilityService(new TraceabilityRepository(sf), devices),
                 new RpnDashboardService(new DashboardRepository(sf), devices));
     }

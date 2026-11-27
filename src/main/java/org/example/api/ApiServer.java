@@ -21,7 +21,7 @@ public class ApiServer {
         var fmea = new FmeaController(services.fmeaConfig(), services.fmea());
         var assessment = new AssessmentController(services.assessment());
         var fta = new FtaController(services.fta());
-        var behavior = new BehaviorController(services.behavior());
+        var behavior = new BehaviorController(services.behavior(), services.fmea(), services.fmeaRepo());
         var library = new ComponentLibraryController(services.library());
         var traceability = new TraceabilityController(services.traceability());
         var dashboard = new DashboardController(services.dashboard());
@@ -124,6 +124,8 @@ public class ApiServer {
             config.routes.post("/behavior-nodes", behavior::create);
             config.routes.put("/behavior-nodes/{id}", behavior::update);
             config.routes.post("/behavior-nodes/{id}/deactivate", behavior::deactivate);
+            config.routes.post("/failure-modes/link", behavior::linkFailureMode);
+            config.routes.post("/failure-modes/{id}/unlink", behavior::unlinkFailureMode);
             config.routes.put("/harms/{id}/fta", fta::save);
             config.routes.get("/harms/{id}/fta", fta::get);
             config.routes.get("/criteria", assessment::getCriteria);
@@ -149,6 +151,7 @@ public class ApiServer {
             config.routes.get("/devices/{id}/traceability", traceability::matrix);
             config.routes.get("/harms/{id}/components", traceability::componentsOfHarm);
             config.routes.get("/components/{id}/harms", traceability::harmsOfComponent);
+            config.routes.get("/harms/{id}/origin-trace", traceability::originTrace);
 
             // Dashboard de RPN del dispositivo
             config.routes.get("/devices/{id}/rpn-dashboard", dashboard::rpn);

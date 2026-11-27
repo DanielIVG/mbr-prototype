@@ -5,6 +5,7 @@ import org.example.api.BehaviorDtos.CreateNodeRequest;
 import org.example.api.BehaviorDtos.NodeDto;
 import org.example.api.ApiServer;
 import org.example.api.ComponentDto;
+import org.example.api.FmeaDtos;
 import org.example.client.ApiClient;
 import org.example.client.ApiException;
 import org.example.config.Database;
@@ -157,5 +158,76 @@ class ArbolComportamientoIntegracionTest {
         assertEquals(3, client.listBehavior(motor).size());
         // la rama SÍ quedó libre y se puede volver a crear
         assertNotNull(nodo(null, t[1].id(), "OUTCOME_SAFE", "Alarma", "YES").id());
+    }
+
+    @Test
+    void modoDeFallaSeVinculaANodoYSeDevuelveEnElListado() {
+        NodeDto[] t = arbolDeLaBomba();
+        // Crear un modo de falla para el motor
+        FmeaDtos.FailureModeDto fm = client.createFailureMode(new FmeaDtos.FailureModeRequest(motor, "Motor atascado"));
+
+        // Vincular el modo de falla al nodo raíz
+        var ref = client.linkFailureModeToBehaviorNode(fm.id(), t[0].id());
+        assertEquals(fm.id(), ref.id());
+        assertEquals("Motor atascado", ref.description());
+
+        // El nodo ahora tiene el modo de falla en su lista
+        var nodos = client.listBehavior(motor);
+        NodeDto raiz = nodos.stream().filter(n -> n.id().equals(t[0].id())).findFirst().orElseThrow();
+        assertEquals(1, raiz.failureModes().size());
+        assertEquals(fm.id(), raiz.failureModes().get(0).id());
+
+        // Desvincular
+        var unlinked = client.unlinkFailureModeFromBehaviorNode(fm.id());
+        assertNull(unlinked.behaviorNodeId()); // ya no está vinculado a ningún nodo
+
+        // Ya no aparece en el nodo
+        nodos = client.listBehavior(motor);
+        raiz = nodos.stream().filter(n -> n.id().equals(t[0].id())).findFirst().orElseThrow();
+        assertTrue(raiz.failureModes().isEmpty());
+    }
+
+    @Test
+    void indiciosDelOrigenMuestraElCaminoConModoDeFalla() {
+        NodeDto[] t = arbolDeLaBomba();
+
+        // Crear y vincular un modo de falla al nodo raíz
+        FmeaDtos.FailureModeDto fm = client.createFailureMode(new FmeaDtos.FailureModeRequest(motor, "Motor atascado"));
+        client.linkFailureModeToBehaviorNode(fm.id(), t[0].id());
+
+        // Obtener indicios del origen del daño generado
+        long harmId = t[3].harmId();
+        var trace = client.originTrace(harmId);
+
+        assertNotNull(trace);
+        assertEquals(harmId, trace.harmId());
+        assertEquals("Lesión por sobredosis", trace.harmDescription());
+        assertEquals("El paciente recibe más dosis de la prescrita", trace.situationDescription());
+        assertEquals("El motor no se detiene", trace.hazardDescription());
+
+        // El camino tiene 4 nodos: raíz (ACTION) → condición (CONDITION) → hoja segura no, solo la rama NO
+        // En realidad el camino es: raíz → condición → hoja peligrosa (3 nodos)
+        assertEquals(3, trace.path().size());
+
+        // El primer nodo (raíz) tiene el modo de falla vinculado
+        var raizStep = trace.path().get(0);
+        assertEquals("El motor no se detiene", raizStep.description());
+        assertEquals("ACTION", raizStep.kind());
+        assertEquals(motor, raizStep.elementId());
+        assertNotNull(raizStep.elementName()); // "Motor" o similar
+        assertEquals(1, raizStep.failureModes().size());
+        assertEquals("Motor atascado", raizStep.failureModes().get(0).description());
+
+        // El segundo nodo es la condición
+        var condStep = trace.path().get(1);
+        assertEquals("¿El sensor detecta el exceso?", condStep.description());
+        assertEquals("CONDITION", condStep.kind());
+        assertEquals(sensor, condStep.elementId());
+
+        // El tercer nodo es la hoja peligrosa
+        var leafStep = trace.path().get(2);
+        assertEquals("Sobredosis", leafStep.description());
+        assertEquals("OUTCOME_HAZARD", leafStep.kind());
+        assertEquals("NO", leafStep.branch());
     }
 }

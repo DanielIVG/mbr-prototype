@@ -46,6 +46,34 @@ public class FmeaService {
         return repo.find(FailureMode.class, id);
     }
 
+    /**
+     * Vincula un modo de falla a un nodo del árbol de comportamiento.
+     * Esto permite que el FMEA sea fuente de eventos en la secuencia de riesgo.
+     */
+    public FailureMode linkToBehaviorNode(Long failureModeId, Long behaviorNodeId) {
+        FailureMode mode = repo.find(FailureMode.class, failureModeId).orElseThrow(
+                () -> new NoSuchElementException("Modo de fallo no encontrado: " + failureModeId));
+        if (behaviorNodeId != null && !repo.behaviorNodeExists(behaviorNodeId)) {
+            throw new NoSuchElementException("Nodo del árbol de comportamiento no encontrado: " + behaviorNodeId);
+        }
+        mode.setBehaviorNodeId(behaviorNodeId);
+        return repo.update(mode);
+    }
+
+    /**
+     * Desvincula un modo de falla de su nodo del árbol de comportamiento.
+     */
+    public FailureMode unlinkFromBehaviorNode(Long failureModeId) {
+        return linkToBehaviorNode(failureModeId, null);
+    }
+
+    /**
+     * Lista los modos de falla de un elemento del modelo (componente, función o interacción).
+     */
+    public List<FailureMode> listFailureModes(Long modelElementId) {
+        return repo.failureModesByElement(modelElementId);
+    }
+
     /** Crea un análisis FMEA y calcula su RPN (RF-12, RF-21, RF-22, RF-25). */
     public FmeaView createAnalysis(Long harmId, Long failureModeId, String effect, String cause,
                                    String detectionMethod, String existingControls, String source,

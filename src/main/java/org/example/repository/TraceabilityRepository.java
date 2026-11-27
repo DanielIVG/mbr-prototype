@@ -41,6 +41,17 @@ public class TraceabilityRepository {
 
     public record ElementRef(long id, String name) {}
 
+    /** Modo de falla con su ocurrencia FMEA actual. */
+    public record FailureModeWithOccurrence(long id, String description, Integer occurrence) {}
+
+    /** Un nodo del camino del árbol de comportamiento. */
+    public record PathNode(long nodeId, String kind, String description, String branch,
+                           Long elementId, String elementName, Long parentId) {}
+
+    /** Datos de la cadena de riesgo (harm, situation, hazard). */
+    public record ChainInfo(long harmId, String harmDescription, String harmType,
+                            String situationDescription, long hazardId, String hazardDescription) {}
+
     private static final String DEVICE_OF_HAZARD =
             "left join component dc on dc.id = hz.model_element_id "
                     + "left join function df on df.id = hz.model_element_id "
@@ -317,6 +328,96 @@ public class TraceabilityRepository {
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         out.add(new HarmRef(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getString(4)));
+                    }
+                }
+            }
+            return out;
+        });
+    }
+
+    // ------------------------------------------------------------------ indicios del origen
+
+    /** Información de la cadena de riesgo a partir del daño. */
+    public Optional<ChainInfo> chainInfo(long harmId) {
+        return work(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "select hm.id, hm.description, hm.type, hs.description, hz.id, hz.description "
+                            + "from harm hm "
+                            + "join hazardous_situation hs on hs.id = hm.hazardous_situation_id "
+                            + "join sequence_of_events s on s.id = hs.sequence_of_events_id "
+                            + "join hazard hz on hz.id = s.hazard_id "
+                            + "where hm.id = ?")) {
+                ps.setLong(1, harmId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) return Optional.<ChainInfo>empty();
+                    return Optional.of(new ChainInfo(rs.getLong(1), rs.getString(2), rs.getString(3),
+                            rs.getString(4), rs.getLong(5), rs.getString(6)));
+                }
+            }
+        });
+    }
+
+    /** Nodo OUTCOME_HAZARD que generó el daño (si existe). */
+    public Optional<Long> behaviorNodeOfHarm(long harmId) {
+        return work(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "select id from behavior_node where harm_id = ? and active = 1")) {
+                ps.setLong(1, harmId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? Optional.of(rs.getLong(1)) : Optional.<Long>empty();
+                }
+            }
+        });
+    }
+
+    /** Camino desde la raíz hasta el nodo (incluido). */
+    public List<PathNode> pathToNode(long nodeId) {
+        return work(c -> {
+            List<PathNode> path = new ArrayList<>();
+            Long current = nodeId;
+            while (current != null) {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "select n.id, n.kind, n.description, n.branch, n.model_element_id, "
+                                + "coalesce(k.name, f.name, i.description), n.parent_id "
+                                + "from behavior_node n "
+                                + "left join component k on k.id = n.model_element_id "
+                                + "left join function f on f.id = n.model_element_id "
+                                + "left join interaction i on i.id = n.model_element_id "
+                                + "where n.id = ? and n.active = 1")) {
+                    ps.setLong(1, current);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) break;
+                        long elId = rs.getLong(5);
+                        Long elementId = rs.wasNull() ? null : elId;
+                        long pId = rs.getLong(7);
+                        Long parentId = rs.wasNull() ? null : pId;
+                        path.add(0, new PathNode(rs.getLong(1), rs.getString(2), rs.getString(3),
+                                rs.getString(4), elementId, rs.getString(6), parentId));
+                        current = parentId;
+                    }
+                }
+            }
+            return path;
+        });
+    }
+
+    /** Modos de falla vinculados a un nodo del árbol, con su ocurrencia FMEA actual. */
+    public List<FailureModeWithOccurrence> failureModesOfNode(long nodeId) {
+        return work(c -> {
+            List<FailureModeWithOccurrence> out = new ArrayList<>();
+            try (PreparedStatement ps = c.prepareStatement(
+                    "select fm.id, fm.description, ("
+                            + "select rf.occurrence from rpn_factor rf "
+                            + "join fmea_analysis fa on fa.id = rf.fmea_analysis_id "
+                            + "where fa.failure_mode_id = fm.id and rf.is_current = 1 "
+                            + "order by rf.id desc limit 1) "
+                            + "from failure_mode fm where fm.behavior_node_id = ? order by fm.id")) {
+                ps.setLong(1, nodeId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        int occ = rs.getInt(3);
+                        Integer occurrence = rs.wasNull() ? null : occ;
+                        out.add(new FailureModeWithOccurrence(rs.getLong(1), rs.getString(2), occurrence));
                     }
                 }
             }

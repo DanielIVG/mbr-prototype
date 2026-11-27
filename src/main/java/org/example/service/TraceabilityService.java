@@ -10,6 +10,7 @@ import org.example.repository.TraceabilityRepository.TraceRow;
 import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 
 /** Requisitos y trazabilidad requisito → medida de control → verificación → daño → componente. */
@@ -141,6 +142,48 @@ public class TraceabilityService {
             throw new IllegalArgumentException("El componente es obligatorio");
         }
         return repository.harmsOfComponent(componentId);
+    }
+
+    // ------------------------------------------------------------------ indicios del origen
+
+    /** Paso del camino del árbol con sus modos de falla vinculados. */
+    public record OriginStep(long nodeId, String kind, String description, String branch,
+                             Long elementId, String elementName,
+                             List<TraceabilityRepository.FailureModeWithOccurrence> failureModes) {}
+
+    /** Indicios del origen de un daño: cadena + camino del árbol. */
+    public record OriginTrace(long harmId, String harmDescription, String harmType,
+                              String situationDescription, long hazardId, String hazardDescription,
+                              List<OriginStep> path) {}
+
+    /**
+     * Dado un daño, devuelve la cadena de riesgo y el camino del árbol de comportamiento
+     * que lo generó, con los modos de falla vinculados a cada nodo.
+     * Devuelve vacío si el daño no fue generado por un árbol de comportamiento.
+     */
+    public Optional<OriginTrace> originTrace(Long harmId) {
+        if (harmId == null) {
+            throw new IllegalArgumentException("El daño es obligatorio");
+        }
+        var chainOpt = repository.chainInfo(harmId);
+        if (chainOpt.isEmpty()) {
+            throw new NoSuchElementException("Daño no encontrado: " + harmId);
+        }
+        var chain = chainOpt.get();
+
+        var leafOpt = repository.behaviorNodeOfHarm(harmId);
+        if (leafOpt.isEmpty()) {
+            return Optional.empty(); // El daño no fue generado por un árbol de comportamiento
+        }
+
+        var pathNodes = repository.pathToNode(leafOpt.get());
+        List<OriginStep> steps = pathNodes.stream()
+                .map(n -> new OriginStep(n.nodeId(), n.kind(), n.description(), n.branch(),
+                        n.elementId(), n.elementName(), repository.failureModesOfNode(n.nodeId())))
+                .toList();
+
+        return Optional.of(new OriginTrace(chain.harmId(), chain.harmDescription(), chain.harmType(),
+                chain.situationDescription(), chain.hazardId(), chain.hazardDescription(), steps));
     }
 
     // ------------------------------------------------------------------ validación

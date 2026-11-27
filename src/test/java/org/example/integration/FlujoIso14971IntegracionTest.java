@@ -113,11 +113,16 @@ class FlujoIso14971IntegracionTest {
         long[] ids = new long[3];
         long harm = cadenaDeLaBomba(ids);
 
-        FunctionDto f = client.createFunction(new FunctionDto(null, ids[0], "Infundir", null, Set.of(ids[1]), true));
-        assertEquals(Set.of(ids[1]), f.componentIds());
+        // Crear dos funciones para poder crear la interacción
+        FunctionDto f1 = client.createFunction(new FunctionDto(null, ids[0], "Impulsar", null, Set.of(ids[1]), true));
+        assertEquals(Set.of(ids[1]), f1.componentIds());
+        FunctionDto f2 = client.createFunction(new FunctionDto(null, ids[0], "Detectar", null, Set.of(ids[2]), true));
+        assertEquals(Set.of(ids[2]), f2.componentIds());
+        // La interacción ahora une funciones (no componentes directamente)
         InteractionDto i = client.createInteraction(new InteractionDto(null, ids[0], "Motor mueve el sensor",
-                "Un fallo mecánico afecta la lectura", Set.of(ids[1], ids[2]), true));
-        assertEquals(2, i.componentIds().size());
+                "Un fallo mecánico afecta la lectura", Set.of(f1.id(), f2.id()), Set.of(), true));
+        assertEquals(2, i.functionIds().size());
+        assertEquals(2, i.componentIds().size()); // derivados de las funciones
         assertEquals(2, client.listComponents(ids[0]).size());
 
         var chains = client.listChains();
@@ -131,11 +136,14 @@ class FlujoIso14971IntegracionTest {
     }
 
     @Test
-    void unaInteraccionConUnSoloComponenteSeRechazaPorHttp() {
+    void unaInteraccionConUnaSolaFuncionSeRechazaPorHttp() {
         long[] ids = new long[3];
         cadenaDeLaBomba(ids);
+        // Crear una sola función
+        FunctionDto f = client.createFunction(new FunctionDto(null, ids[0], "Impulsar", null, Set.of(ids[1]), true));
+        // Intentar crear interacción con solo esa función debe fallar
         var e = assertThrows(ApiException.class, () -> client.createInteraction(
-                new InteractionDto(null, ids[0], "x", "y", Set.of(ids[1]), true)));
+                new InteractionDto(null, ids[0], "x", "y", Set.of(f.id()), Set.of(), true)));
         assertEquals(400, e.status());
     }
 

@@ -87,20 +87,31 @@ class ModelApiTest {
     }
 
     @Test
-    void interaccionNecesitaDosComponentes() throws Exception {
+    void interaccionNecesitaDosFunciones() throws Exception {
         long a = createComponent("Pump");
         long b = createComponent("Battery");
+        // Crear funciones para los componentes
+        long f1 = createFunction("Impulsar", a);
+        long f2 = createFunction("Alimentar", b);
 
         var uno = call("POST", "/interactions",
                 "{\"deviceId\":" + deviceId + ",\"description\":\"Fuga\","
-                        + "\"relevanceJustification\":\"Relevante\",\"componentIds\":[" + a + "]}");
+                        + "\"relevanceJustification\":\"Relevante\",\"functionIds\":[" + f1 + "]}");
         assertEquals(400, uno.statusCode());
 
         var dos = call("POST", "/interactions",
                 "{\"deviceId\":" + deviceId + ",\"description\":\"Fuga\","
-                        + "\"relevanceJustification\":\"Relevante\",\"componentIds\":[" + a + "," + b + "]}");
+                        + "\"relevanceJustification\":\"Relevante\",\"functionIds\":[" + f1 + "," + f2 + "]}");
         assertEquals(201, dos.statusCode());
-        assertEquals(2, mapper.readTree(dos.body()).get("componentIds").size());
+        assertEquals(2, mapper.readTree(dos.body()).get("functionIds").size());
+        assertEquals(2, mapper.readTree(dos.body()).get("componentIds").size()); // derivados
+    }
+
+    private long createFunction(String name, long componentId) throws Exception {
+        var r = call("POST", "/functions",
+                "{\"deviceId\":" + deviceId + ",\"name\":\"" + name + "\",\"componentIds\":[" + componentId + "]}");
+        assertEquals(201, r.statusCode());
+        return mapper.readTree(r.body()).get("id").asLong();
     }
 
     @Test

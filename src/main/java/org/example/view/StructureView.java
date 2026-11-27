@@ -187,7 +187,7 @@ public class StructureView extends HBox {
             case INTERACTIONS -> {
                 for (InteractionDto i : interactions) {
                     listBox.getChildren().add(row(i.id(), i.description(),
-                            names(i.componentIds()), false));
+                            functionNames(i.functionIds()), false));
                 }
             }
         }
@@ -201,7 +201,7 @@ public class StructureView extends HBox {
                         "Una función es lo que el dispositivo hace gracias a sus componentes. Define las funciones principales del dispositivo.");
                 case INTERACTIONS -> Ui.emptyState(Ui.ICON_LINK,
                         "Aún no hay interacciones",
-                        "Registra solo las interacciones relevantes para el riesgo, involucrando mínimo dos componentes.");
+                        "Registra solo las interacciones relevantes para el riesgo, involucrando mínimo dos funciones.");
             };
             listBox.getChildren().add(empty);
         }
@@ -266,6 +266,16 @@ public class StructureView extends HBox {
         return String.join(" · ", out);
     }
 
+    private String functionNames(Set<Long> ids) {
+        List<String> out = new ArrayList<>();
+        for (FunctionDto f : functions) {
+            if (ids.contains(f.id())) {
+                out.add(f.name());
+            }
+        }
+        return String.join(" · ", out);
+    }
+
     // ------------------------------------------------------------------ panel derecho
 
     private void renderAside() {
@@ -321,10 +331,13 @@ public class StructureView extends HBox {
     }
 
     private void interactionDetail(InteractionDto i) {
+        String funcNames = functionNames(i.functionIds());
+        String compNames = names(i.componentIds());
         aside.getChildren().addAll(Ui.label("Interacción seleccionada", "table-head"),
                 field("Descripción", i.description()),
                 field("Por qué es relevante", i.relevanceJustification()),
-                field("Componentes que intervienen", names(i.componentIds())),
+                field("Funciones que intervienen", funcNames.isEmpty() ? "(sin funciones)" : funcNames),
+                field("Componentes derivados", compNames.isEmpty() ? "(derivados de las funciones)" : compNames),
                 actions(() -> { mode = Mode.EDIT; notice = null; render(); },
                         () -> deactivate("la interacción", () -> api.deactivateInteraction(i.id()))));
     }
@@ -382,6 +395,21 @@ public class StructureView extends HBox {
         }
         if (components.isEmpty()) {
             box.getChildren().add(Ui.label("Primero agrega componentes.", "hint"));
+        }
+        return box;
+    }
+
+    /** Casillas de funciones activas; devuelve el contenedor y deja el mapa para leer la selección. */
+    private VBox functionChecks(Set<Long> selected, Map<Long, CheckBox> out) {
+        VBox box = new VBox(4);
+        for (FunctionDto f : functions) {
+            CheckBox cb = new CheckBox(f.name());
+            cb.setSelected(selected.contains(f.id()));
+            out.put(f.id(), cb);
+            box.getChildren().add(cb);
+        }
+        if (functions.isEmpty()) {
+            box.getChildren().add(Ui.label("Primero agrega funciones.", "hint"));
         }
         return box;
     }
@@ -582,7 +610,7 @@ public class StructureView extends HBox {
         TextArea desc = area(editing == null ? "" : editing.description());
         TextArea relevance = area(editing == null ? "" : editing.relevanceJustification());
         Map<Long, CheckBox> checks = new LinkedHashMap<>();
-        VBox checkBox = componentChecks(editing == null ? Set.of() : editing.componentIds(), checks);
+        VBox checkBox = functionChecks(editing == null ? Set.of() : editing.functionIds(), checks);
         Label error = Ui.label("", "field-error");
         Button save = Ui.button(editing == null ? "Guardar interacción" : "Guardar cambios", "btn-primary", () -> { });
         save.setOnAction(e -> {
@@ -591,16 +619,16 @@ public class StructureView extends HBox {
                 return;
             }
             if (checked(checks).size() < 2) {
-                error.setText("Una interacción involucra al menos dos componentes.");
+                error.setText("Una interacción involucra al menos dos funciones.");
                 return;
             }
             InteractionDto body = new InteractionDto(editing == null ? null : editing.id(), device.id(),
-                    desc.getText().trim(), relevance.getText().trim(), checked(checks), true);
+                    desc.getText().trim(), relevance.getText().trim(), checked(checks), Set.of(), true);
             submit(save, error, () -> editing == null ? api.createInteraction(body)
                     : api.updateInteraction(editing.id(), body));
         });
         aside.getChildren().addAll(Ui.label(editing == null ? "Nueva interacción" : "Editar interacción", "form-title-sm"),
                 labeled("Descripción", desc), labeled("Por qué es relevante para el riesgo", relevance),
-                labeled("Componentes que intervienen (mínimo 2)", checkBox), formFooter(error, save));
+                labeled("Funciones que intervienen (mínimo 2)", checkBox), formFooter(error, save));
     }
 }

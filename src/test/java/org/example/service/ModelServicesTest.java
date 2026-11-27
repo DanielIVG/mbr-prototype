@@ -45,7 +45,7 @@ class ModelServicesTest {
         functions = new DeviceFunctionService(
                 new ModelElementRepository<>(sf, DeviceFunction.class), links, devices, components);
         interactions = new InteractionService(
-                new ModelElementRepository<>(sf, Interaction.class), links, devices, components);
+                new ModelElementRepository<>(sf, Interaction.class), links, devices, functions);
         deviceId = devices.create("Bomba", "Infundir", null).getId();
     }
 
@@ -89,13 +89,19 @@ class ModelServicesTest {
     }
 
     @Test
-    void interaccionExigeDosComponentes() {
+    void interaccionExigeDosFunciones() {
         var a = component("Pump");
         var b = component("Battery");
+        // Crear funciones para los componentes
+        var f1 = functions.create(deviceId, "Impulsar", null, Set.of(a.getId()));
+        var f2 = functions.create(deviceId, "Alimentar", null, Set.of(b.getId()));
+        // Con una sola función debe fallar
         assertThrows(IllegalArgumentException.class,
-                () -> interactions.create(deviceId, "Fuga", "Relevante", Set.of(a.getId())));
-        var i = interactions.create(deviceId, "Fuga", "Relevante", Set.of(a.getId(), b.getId()));
-        assertEquals(2, interactions.find(i.getId()).orElseThrow().getComponentIds().size());
+                () -> interactions.create(deviceId, "Fuga", "Relevante", Set.of(f1.getId())));
+        // Con dos funciones debe funcionar
+        var i = interactions.create(deviceId, "Fuga", "Relevante", Set.of(f1.getId(), f2.getId()));
+        assertEquals(2, interactions.find(i.getId()).orElseThrow().getFunctionIds().size());
+        assertEquals(2, interactions.find(i.getId()).orElseThrow().getComponentIds().size()); // derivados
     }
 
     @Test

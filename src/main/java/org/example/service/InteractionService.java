@@ -1,6 +1,7 @@
 // InteractionService.java
 package org.example.service;
 
+import org.example.model.DeviceFunction;
 import org.example.model.Interaction;
 import org.example.repository.ModelElementRepository;
 import org.example.repository.ModelLinksRepository;
@@ -10,46 +11,59 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class InteractionService {
 
     private final ModelElementRepository<Interaction> repo;
     private final ModelLinksRepository links;
     private final DeviceService devices;
-    private final ComponentService components;
+    private final DeviceFunctionService functions;
 
     public InteractionService(ModelElementRepository<Interaction> repo,
                               ModelLinksRepository links, DeviceService devices,
-                              ComponentService components) {
+                              DeviceFunctionService functions) {
         this.repo = repo;
         this.links = links;
         this.devices = devices;
-        this.components = components;
+        this.functions = functions;
     }
 
+    /**
+     * Crea una interacción enlazando funciones.
+     * @param functionIds funciones que participan en la interacción (mínimo 2)
+     */
     public Interaction create(Long deviceId, String description, String relevance,
-                              Set<Long> componentIds) {
+                              Set<Long> functionIds) {
         Validation.requireDevice(devices, deviceId);
         Validation.requireText(description, "La descripción es obligatoria");
         Validation.requireText(relevance, "La justificación de relevancia es obligatoria");
-        Set<Long> ids = requireAtLeastTwo(components.requireSameDevice(deviceId, componentIds));
+        Set<Long> ids = requireAtLeastTwoFunctions(deviceId, functionIds);
         Interaction i = new Interaction();
         i.setDeviceId(deviceId);
         i.setDescription(description.trim());
         i.setRelevanceJustification(relevance.trim());
-        i.setComponentIds(new HashSet<>(ids));
+        i.setFunctionIds(new HashSet<>(ids));
+        // componentIds se deriva de las funciones
+        i.setComponentIds(deriveComponentIds(ids));
         return repo.save(i);
     }
 
+    /**
+     * Actualiza una interacción enlazando funciones.
+     * @param functionIds funciones que participan en la interacción (mínimo 2)
+     */
     public Interaction update(Long id, String description, String relevance,
-                              Set<Long> componentIds) {
+                              Set<Long> functionIds) {
         Interaction i = get(id);
         Validation.requireText(description, "La descripción es obligatoria");
         Validation.requireText(relevance, "La justificación de relevancia es obligatoria");
-        Set<Long> ids = requireAtLeastTwo(components.requireSameDevice(i.getDeviceId(), componentIds));
+        Set<Long> ids = requireAtLeastTwoFunctions(i.getDeviceId(), functionIds);
         i.setDescription(description.trim());
         i.setRelevanceJustification(relevance.trim());
-        i.setComponentIds(new HashSet<>(ids));
+        i.setFunctionIds(new HashSet<>(ids));
+        // componentIds se deriva de las funciones
+        i.setComponentIds(deriveComponentIds(ids));
         return repo.update(i);
     }
 
@@ -81,11 +95,35 @@ public class InteractionService {
                 () -> new NoSuchElementException("Interacción no encontrada: " + id));
     }
 
-    private static Set<Long> requireAtLeastTwo(Set<Long> ids) {
-        if (ids.size() < 2) {
+    /**
+     * Valida que haya al menos 2 funciones y que todas pertenezcan al dispositivo.
+     */
+    private Set<Long> requireAtLeastTwoFunctions(Long deviceId, Set<Long> functionIds) {
+        if (functionIds == null || functionIds.size() < 2) {
             throw new IllegalArgumentException(
-                    "Una interacción requiere al menos dos componentes distintos (RF-04)");
+                    "Una interacción requiere al menos dos funciones distintas");
         }
-        return ids;
+        Set<Long> validated = new HashSet<>();
+        for (Long fid : functionIds) {
+            DeviceFunction f = functions.find(fid).orElseThrow(
+                    () -> new NoSuchElementException("Función no encontrada: " + fid));
+            if (!f.getDeviceId().equals(deviceId)) {
+                throw new IllegalArgumentException(
+                        "La función " + fid + " pertenece a otro dispositivo");
+            }
+            validated.add(fid);
+        }
+        return validated;
+    }
+
+    /**
+     * Deriva los IDs de componentes de las funciones involucradas.
+     */
+    private Set<Long> deriveComponentIds(Set<Long> functionIds) {
+        Set<Long> componentIds = new HashSet<>();
+        for (Long fid : functionIds) {
+            functions.find(fid).ifPresent(f -> componentIds.addAll(f.getComponentIds()));
+        }
+        return componentIds;
     }
 }

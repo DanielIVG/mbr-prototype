@@ -1,6 +1,7 @@
 // FmeaRepository.java
 package org.example.repository;
 
+import org.example.model.FailureMode;
 import org.example.model.FmeaAnalysis;
 import org.example.model.FmeaScaleLevel;
 import org.example.model.RpnFactor;
@@ -99,5 +100,47 @@ public class FmeaRepository {
                         FmeaAnalysis.class)
                 .setParameter("id", harmId)
                 .getResultList());
+    }
+
+    public <E> E update(E entity) {
+        return sf.fromTransaction(s -> s.merge(entity));
+    }
+
+    public boolean behaviorNodeExists(Long nodeId) {
+        return sf.fromTransaction(s -> s.createNativeQuery(
+                        "SELECT COUNT(*) FROM behavior_node WHERE id = :id AND active = 1", Long.class)
+                .setParameter("id", nodeId)
+                .getSingleResult() > 0);
+    }
+
+    public List<FailureMode> failureModesByElement(Long modelElementId) {
+        return sf.fromTransaction(s -> s.createSelectionQuery(
+                        "from FailureMode f where f.modelElementId = :id order by f.id",
+                        FailureMode.class)
+                .setParameter("id", modelElementId)
+                .getResultList());
+    }
+
+    /** Modos de falla vinculados a un nodo del árbol de comportamiento. */
+    public List<FailureMode> failureModesByBehaviorNode(Long behaviorNodeId) {
+        return sf.fromTransaction(s -> s.createSelectionQuery(
+                        "from FailureMode f where f.behaviorNodeId = :id order by f.id",
+                        FailureMode.class)
+                .setParameter("id", behaviorNodeId)
+                .getResultList());
+    }
+
+    /** Obtiene el valor de ocurrencia actual del análisis FMEA más reciente de un modo de falla. */
+    public Optional<Integer> currentOccurrenceByFailureMode(Long failureModeId) {
+        return sf.fromTransaction(s -> {
+            var results = s.createNativeQuery(
+                            "SELECT rf.occurrence FROM rpn_factor rf " +
+                                    "JOIN fmea_analysis fa ON rf.fmea_analysis_id = fa.id " +
+                                    "WHERE fa.failure_mode_id = :fmId AND rf.is_current = 1 " +
+                                    "ORDER BY rf.id DESC LIMIT 1", Integer.class)
+                    .setParameter("fmId", failureModeId)
+                    .getResultList();
+            return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+        });
     }
 }
